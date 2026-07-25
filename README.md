@@ -1,134 +1,123 @@
 # NeuroScan XAI — Brain Tumour Detection with Explainable AI
 
-Working implementation of your Phase 1 proposal: **"A Unified XAI Framework
-for Interpreting Deep Learning Models in Brain Tumour Detection"** (BCS685).
-Custom CNN + Grad-CAM + LRP + SHAP on BraTS 2021 FLAIR MRI, served through
-a FastAPI backend and a React diagnostic-console frontend.
+[![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/)
+[![PyTorch](https://img.shields.io/badge/PyTorch-2.1+-ee4c2c.svg)](https://pytorch.org/)
+[![FastAPI](https://img.shields.io/badge/FastAPI-0.100+-009688.svg)](https://fastapi.tiangolo.com/)
+[![React](https://img.shields.io/badge/React-19.0+-61dafb.svg)](https://react.dev/)
 
-**This is a fully working, tested system right now** — trained on a
-synthetic stand-in dataset (see "About the demo model" below) because this
-build environment can't reach Kaggle to download the real ~6GB BraTS 2021
-dataset. Swapping in the real dataset takes two commands (Section 2) and
-changes nothing else — same model code, same API, same UI.
+**NeuroScan XAI** is a deep learning and Explainable AI (XAI) platform designed for binary brain tumor classification (Tumor / Non-Tumor) on FLAIR MRI slices. The framework integrates a custom Convolutional Neural Network (CNN) with a multi-method interpretability suite—combining region-level, pixel-level, and feature-level explanations into a unified diagnostic dashboard.
 
 ---
 
-## 1. Project structure
+## ⚡ Technical Highlights
+
+- **Custom CNN Architecture**: A lightweight 4-block convolutional network (`Conv2d` -> `ReLU` -> `MaxPool2d`) optimized for rapid inference and interpretable feature extraction without transfer learning dependencies.
+- **Unified XAI Attribution Suite**:
+  - **Grad-CAM**: Highlights regional attention maps from the final convolutional layer.
+  - **LRP (Layer-wise Relevance Propagation)**: Computes pixel-wise relevance scores to reveal exact input feature attributions.
+  - **SHAP (SHapley Additive exPlanations)**: Employs `GradientExplainer` with background baseline sampling for feature contribution mapping.
+- **FastAPI Backend Services**: High-performance RESTful API serving predictions, raw confidence metrics, and base64-encoded image heatmaps.
+- **Modern Diagnostic Console**: Reactive frontend built with React 19 and Vite, offering dynamic slice uploads, real-time metrics, and synchronized multi-heatmap visual comparisons.
+- **BraTS 2021 & Synthetic Pipeline**: Built-in data processing tools (`prepare_brats.py` and `train_real.py`) for processing 3D `.nii.gz` volumes alongside a synthetic demo mode for instant evaluation.
+
+---
+
+## 📁 Project Structure
 
 ```
 braintumor-xai/
 ├── backend/
 │   ├── app/
-│   │   ├── model.py         # BrainTumorCNN (Conv→ReLU→MaxPool ×4 + FC head)
-│   │   ├── xai.py           # Grad-CAM, LRP (hand-written), SHAP
-│   │   └── main.py          # FastAPI app: /health, /predict
-│   ├── train_demo.py        # generates synthetic data + trains a demo model (already run)
-│   ├── prepare_brats.py     # converts real BraTS .nii.gz -> labeled PNG slices
-│   ├── train_real.py        # trains on the real, prepared BraTS data
-│   ├── model_weights.pt     # ALREADY TRAINED demo weights, included
-│   ├── demo_data/           # the synthetic slices used to train it
-│   └── requirements.txt
+│   │   ├── main.py          # FastAPI endpoints (/health, /predict) & middleware
+│   │   ├── model.py         # BrainTumorCNN model definition & layer mappings
+│   │   └── xai.py           # Unified Grad-CAM, LRP, and SHAP heatmaps
+│   ├── demo_data/           # Bundled synthetic demo slices (tumor / notumor)
+│   ├── model_weights.pt     # Pre-trained CNN model weights
+│   ├── prepare_brats.py     # 3D BraTS NIfTI (.nii.gz) -> 2D PNG slice converter
+│   ├── train_demo.py        # Demo dataset generator and trainer
+│   ├── train_real.py        # Stratified training pipeline with data augmentation
+│   └── requirements.txt     # Python dependencies with minimum version bounds
 └── frontend/
-    ├── src/App.jsx           # dashboard UI
-    ├── src/App.css           # diagnostic-console design system
-    └── (standard Vite React app)
+    ├── src/
+    │   ├── App.jsx          # Interactive diagnostic console component
+    │   ├── App.css          # Dark-mode medical UI design system
+    │   └── main.jsx         # Vite entry point
+    ├── index.html           # HTML template
+    └── package.json         # React & Vite dependencies
 ```
 
-## 2. Running it as-is (demo model, works immediately)
+---
+
+## 💻 Tech Stack
+
+- **Deep Learning & XAI**: PyTorch, Captum, SHAP, OpenCV, NumPy, Scikit-Learn, NiBabel
+- **Backend API**: FastAPI, Uvicorn, Python-Multipart, Pillow
+- **Frontend App**: React 19, Vite, Vanilla CSS
+
+---
+
+## 🚀 Quick Start
+
+### 1. Backend Setup
 
 ```bash
-# Backend
 cd backend
-pip install -r requirements.txt --break-system-packages
-uvicorn app.main:app --host 0.0.0.0 --port 8000
 
-# Frontend (new terminal)
+# Create and activate virtual environment (optional)
+python -m venv venv
+# On Windows: venv\Scripts\activate | On Linux/macOS: source venv/bin/activate
+
+# Install dependencies
+pip install -r requirements.txt
+
+# Start the FastAPI server
+uvicorn app.main:app --host 0.0.0.0 --port 8000
+```
+
+The API will be live at `http://localhost:8000`. Test endpoint health at `http://localhost:8000/health`.
+
+### 2. Frontend Setup
+
+```bash
 cd frontend
+
+# Install dependencies
 npm install
+
+# Start Vite development server
 npm run dev
 ```
 
-Open the printed frontend URL (usually `http://localhost:5173`), upload any
-grayscale MRI-like image, click **Run Detection + XAI**, and you'll get a
-prediction plus three live heatmaps. Try the images inside
-`backend/demo_data/tumor/` and `backend/demo_data/notumor/` first.
+Open `http://localhost:5173` in your browser. Upload sample MRI slices from `backend/demo_data/tumor/` or `backend/demo_data/notumor/` to view real-time predictions and XAI overlay heatmaps.
 
-## 3. Swapping in the real BraTS 2021 dataset
+---
 
-The sandbox that built this can't reach Kaggle, so you'll do this step
-yourself — it's two commands.
+## 📊 BraTS 2021 Dataset Integration
 
-**Get the data:**
-1. Go to Kaggle and search **"BraTS 2021 Task 1"** (e.g.
-   `kaggle.com/datasets/dschettler8845/brats-2021-task1`), or use the
-   official BraTS registration at https://www.synapse.org/brats if your
-   institution needs the fully licensed version.
-2. Either download it locally, or — recommended, since it's large and you
-   have no GPU-heavy laptop most likely — open a **Kaggle Notebook**,
-   attach the dataset, and run everything there (Kaggle gives free GPU
-   time, which matters for step 4).
-3. You should end up with one folder per patient, each containing
-   `..._flair.nii.gz`, `..._t1.nii.gz`, `..._t1ce.nii.gz`, `..._t2.nii.gz`,
-   `..._seg.nii.gz`.
+To train the model on full-scale clinical dataset (BraTS 2021 FLAIR volumes):
 
-**Prepare and train:**
+1. Download dataset subfolders containing `*_flair.nii.gz` and `*_seg.nii.gz` volumes (e.g., from [Kaggle BraTS 2021](https://www.kaggle.com/datasets/dschettler8845/brats-2021-task1)).
+2. Set `RAW_DATA_DIR` in `backend/prepare_brats.py` to your raw dataset path.
+3. Run preprocessing and training:
+
 ```bash
 cd backend
-# edit RAW_DATA_DIR at the top of prepare_brats.py to point at your download
-python3 prepare_brats.py     # -> brats_prepared/tumor, brats_prepared/notumor
-python3 train_real.py        # trains, prints accuracy/precision/recall/F1, saves model_weights.pt
+python prepare_brats.py   # Extracts & cleans brain tissue slices -> brats_prepared/
+python train_real.py      # Trains CNN with data augmentation & saves model_weights.pt
 ```
 
-That's it — restart `uvicorn`, and the web app now runs on your real,
-BraTS-trained model. `prepare_brats.py` implements exactly the
-preprocessing your Phase 1 report already committed to (resize,
-intensity normalization, Gaussian + median denoising, cleaning of
-corrupted/empty slices); `train_real.py` adds the rotation + horizontal
-flip augmentation and a proper stratified train/val/test split, and
-reports the full metrics you'll want for your results chapter.
+Restart `uvicorn` to run inference using your newly trained model weights.
 
-## 4. About the demo model (be upfront about this in your presentation)
+---
 
-The `model_weights.pt` included here was trained on **synthetic**
-brain-silhouette images with a randomly placed bright "tumour" blob — not
-real MRI data — purely so the full pipeline (CNN → Grad-CAM → LRP → SHAP →
-web app) is provably working end-to-end today. It gets ~100% accuracy
-because the synthetic task is trivially easy; that number means nothing
-about real-world performance and shouldn't be quoted to faculty as a
-result. Treat it as a wiring test, not a model result. Your actual
-reportable numbers come from `train_real.py` on real BraTS data.
+## 🔮 Future Work
 
-## 5. Implementation notes worth knowing for your defense
+- **Multi-Class Segmentation**: Extend architecture to segment specific tumor regions (enhancing tumor, edema, necrotic core).
+- **3D Spatial Attribution**: Expand XAI techniques from 2D slices to full 3D volumetric MRI scans.
+- **Clinical Integration**: DICOM format support and EHR integration capability.
 
-- **LRP**: Captum's built-in `LRP` class threw a hook-compatibility error
-  with Conv2d layers on this PyTorch version (`RuntimeError: hook
-  '_backward_hook_input' has changed the size of value` — a known
-  library version mismatch, reproducible even on a minimal 1-conv-layer
-  model). Rather than downgrade dependencies and risk other breakage, I
-  hand-implemented epsilon-LRP directly (`app/xai.py::lrp`) using the
-  standard "gradient trick" formulation from Montavon et al.'s LRP
-  overview paper. This is a legitimate, citable approach — plenty of LRP
-  implementations are hand-written rather than library calls — and it's
-  arguably a stronger talking point in your viva ("we implemented LRP's
-  propagation rule directly") than "we called a library function."
-- **Grad-CAM** target layer is the last convolutional layer
-  (`model.gradcam_target_layer`, 128 channels at 8×8 resolution before
-  the final pooling) — standard Grad-CAM placement.
-- **SHAP** uses `GradientExplainer` (not `KernelExplainer`), which is
-  far faster for CNNs — it needs a small background sample set (drawn
-  from `demo_data/` here; use a sample from your training set for the
-  real model).
-- All three explanation methods run on the **same trained model** and
-  the **same input**, which is the whole point of a "unified" XAI
-  framework — you can literally show faculty the three heatmaps
-  disagreeing or agreeing on the same scan.
+---
 
-## 6. Deploying for your Phase 2 demo
+## 📄 License
 
-For the live evaluation, the simplest path is: run the backend on your
-laptop (or a Kaggle/Colab-exposed endpoint via `ngrok` if you trained
-there and want to keep using their GPU), and run the frontend either
-locally (`npm run dev`) or built as static files (`npm run build` in
-`frontend/`, then serve `frontend/dist/`) and deployed to something free
-like Vercel or Netlify, pointing `VITE_API_BASE` at wherever your backend
-is reachable.
+Distributed under the MIT License. See `LICENSE` for details.
